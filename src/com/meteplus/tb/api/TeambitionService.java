@@ -17,6 +17,8 @@ import com.meteplus.tb.objects.Task;
 import com.meteplus.utils.UrlBuilder;
 import java.util.ArrayList;
 import com.meteplus.tb.objects.UnreadMessage.Message;
+import com.meteplus.utils.Utils;
+import java.util.Date;
 /**
  *
  * @author HuangMing
@@ -1302,39 +1304,108 @@ public class TeambitionService {
             
     }
 
+    /**
+     * @deprecated 通过获取固定数量的消息，然后判断这些消息里面有哪些没有读。
+     * 这种方式是不准确的，因此这个方法被废除了
+     * @param latestN
+     * @return 
+     */
+    public ArrayList<Message> getUnreadMessages(int latestN){
 
-    public ArrayList<Message> getLatestNmessages(int latestN){
+        String url=new UrlBuilder().path(API_TEAMBITION_V2).path(SUBPATH_MESSAGES)
+                                   .query("access_token",access_token) 
+                                   .query("count",latestN) 
+                                   .query("page",1) 
+                                   .toString(); 
 
-            String regUrl="https://api.teambition.com/api/v2/messages?access_token="+access_token+"&count="+latestN+"&page=1";
+        ArrayList<Message> messages=null;
 
-            String url=new UrlBuilder().path(API_TEAMBITION).path(SUBPATH_MESSAGES)
-                                       .query("access_token",access_token) 
-                                       .toString(); 
-            
-            ArrayList<Message> messages=null;
-            
-            try{
-                    JSONArray jsArr=MPHttpClientCaller.doReusableHttpGetJsonArray(url, httpErrorResponseHandler);               
-                    final int size=jsArr.size();
-                    if(size>0){
-                        messages=new ArrayList<>(size+1);
+        try{
+                JSONArray jsArr=MPHttpClientCaller.doReusableHttpGetJsonArray(url, httpErrorResponseHandler);               
+                final int size=jsArr.size();
+                if(size>0){
+                    messages=new ArrayList<>(size+1);
+                }
+                for(int i=0;i<size;i++){
+                    JSONObject jsMessage=jsArr.getJSONObject(i);
+                    if(jsMessage==null){
+                        continue;
                     }
-                    for(int i=0;i<size;i++){
-                        JSONObject jsMessage=jsArr.getJSONObject(i);
-                        if(jsMessage==null){
-                            continue;
-                        }
-                        Message message=Message.createInstanceByJson(jsMessage);
-                        if(message!=null&&!message.isRead()){
-                            messages.add(message);
-                        }
+                    Message message=Message.createInstanceByJson(jsMessage);
+                    if(message!=null&&!message.isRead()){
+                        messages.add(message);
                     }
-            }catch(Exception e){
-                e.printStackTrace();
-            }      
-            return messages;       
+                }
+        }catch(Exception e){
+            e.printStackTrace();
+        }      
+        return messages;       
         
     }
+    
+    
+    /**
+     * 
+     * @param localDateTime
+     * @param count
+     * @return 
+     */
+    public ArrayList<Message> getLatestMessages(Date localDateTime,int count){
+
+        String strUtcTime=Utils.localToUTC(localDateTime,"YYYY-MM-DDTHH:mm:ss.sssZ");
+        
+        String url=new UrlBuilder().path(API_TEAMBITION).path(SUBPATH_MESSAGES)
+                                   .path("latest") 
+                                   .query("access_token",access_token) 
+                                   .query("updated_gt",strUtcTime) 
+                                   .query("count",count) 
+                                   .toString(); 
+        
+        ArrayList<Message> messages=null;
+
+        try{
+                JSONArray jsArr=MPHttpClientCaller.doReusableHttpGetJsonArray(url, httpErrorResponseHandler);               
+                final int size=jsArr.size();
+                if(size>0){
+                    messages=new ArrayList<>(size+1);
+                }
+                for(int i=0;i<size;i++){
+                    JSONObject jsMessage=jsArr.getJSONObject(i);
+                    if(jsMessage==null){
+                        continue;
+                    }
+                    Message message=Message.createInstanceByJson(jsMessage);
+                    if(message!=null){
+                        messages.add(message);
+                    }
+                }
+        }catch(Exception e){
+            e.printStackTrace();
+        }      
+        return messages;       
+        
+    }    
+    
+    /**
+     * 
+     * @param localDateTime
+     * @param count
+     * @return 
+     */
+    public ArrayList<Message> getLatestUnreadMessages(Date localDateTime ,int count){
+        
+        ArrayList<Message> messages=getLatestMessages(localDateTime,count);
+        if(messages!=null){
+            for(int i=0;i<messages.size();i++){
+                Message message=messages.get(i);
+                if(message==null||message.isRead()){
+                    messages.remove(i--);
+                }
+            }
+        }
+        return messages;       
+        
+    }        
     
     
     /**
